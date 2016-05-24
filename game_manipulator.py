@@ -1,7 +1,9 @@
 import pyautogui
+from threading import Timer
 import scanner
 from datetime import datetime
 import numpy as np
+import time
 # Cache screen size
 screenSize = scanner.Size(pyautogui.size())
 
@@ -18,7 +20,7 @@ class Sensor(object):
         self.lastValue = 1
 
         self.value = None
-        self.offset = [84, -15], # 64,-15
+        self.offset = [84, -15]
         self.step = [4, 0]
         self.length = 0.3
 
@@ -48,6 +50,8 @@ class GameManipulator(object):
 
     # GameOver Position
     gameOverOffset = [190, -82]
+    lastOutputSet = 'NONE'
+    lastOutputSetTime = 0
 
     # Stores an array of "sensors" (Ray tracings)
     # Positions are always relative to global "offset"
@@ -55,9 +59,11 @@ class GameManipulator(object):
 
 
 # Find out dinosaur (fast)
+    @staticmethod
     def findGamePosition():
         pos, dinoPos, skipXFast = [15]*3
         mul = 20
+        screenshot = pyautogui.screenshot().resize((screenSize.width, screenSize.height)).convert('RGB')
         for x in map(lambda x: mul*x,range(1, screenSize.width/mul)):
             dinoPos = Scanner.scanUntil(
                 # Start position
@@ -69,7 +75,7 @@ class GameManipulator(object):
                 # Normal mode (not inverse)
                 False,
                 # Iteration limit
-                500 / skipXFast)
+                500 / skipXFast, screenshot)
 
             if dinoPos:
                 break
@@ -77,7 +83,7 @@ class GameManipulator(object):
         if not dinoPos:
             return None
 
-        for (var x = dinoPos[0] - 50 x <= dinoPos[0]; x += 1) {
+        for x in range(dinoPos[0] - 50, dinoPos[0]+1):
             pos = Scanner.scanUntil(
                 # Start position
                 [x, dinoPos[1] - 2],
@@ -88,7 +94,7 @@ class GameManipulator(object):
                 # Normal mode (not inverse)
                 False,
                 # Iteration limit
-                100)
+                100, screenshot)
 
             if pos:
                 break
@@ -99,8 +105,7 @@ class GameManipulator(object):
 
         # Find the end of the game
         endPos = pos
-
-        while (pyautogui.pixelMatchesColor(endPos[0] + 3, endPos[1], COLOR_DINOSAUR):
+        while(screenshot.getpixel((endPos[0] + 3, endPos[1])) == COLOR_DINOSAUR):
             endPos = Scanner.scanUntil(
               # Start position
               [endPos[0] + 2, endPos[1]],
@@ -111,7 +116,7 @@ class GameManipulator(object):
               # Invert mode
               True,
               # Iteration limit
-              600)
+              600, screenshot)
 
         # Did actually found? If not, error!
         if not endPos:
@@ -126,6 +131,7 @@ class GameManipulator(object):
 
 # Read Game state
 # (If game is ended or is playing)
+    @staticmethod
     def readGameState():
       # Read GameOver
         found = Scanner.scanUntil(
@@ -134,7 +140,7 @@ class GameManipulator(object):
           GameManipulator.offset[1] + GameManipulator.gameOverOffset[1]
         ],
 
-        [2, 0], COLOR_DINOSAUR, False, 20)
+        [2, 0], COLOR_DINOSAUR, False, 20, pyautogui.screenshot().resize((screenSize.width, screenSize.height)).convert('RGB'))
 
         if found and not GameManipulator.gamestate == 'OVER':
             GameManipulator.gamestate = 'OVER'
@@ -143,36 +149,37 @@ class GameManipulator(object):
             GameManipulator.setGameOutput(0.5)
 
             # Trigger callback and clear
-            GameManipulator.onGameEnd && GameManipulator.onGameEnd(GameManipulator.points)
-            GameManipulator.onGameEnd = None
+            if GameManipulator.onGameEnd:
+                GameManipulator.onGameEnd(GameManipulator.points)
+                GameManipulator.onGameEnd = None
 
             # console.log('GAME OVER= '+GameManipulator.points)
 
-         elif not found and not GameManipulator.gamestate == 'PLAYING':
-             GameManipulator.gamestate = 'PLAYING'
+        elif not found and not GameManipulator.gamestate == 'PLAYING':
+            GameManipulator.gamestate = 'PLAYING'
 
-              # Clear points
-             GameManipulator.points = 0
-             GameManipulator.lastScore = 0
+             # Clear points
+            GameManipulator.points = 0
+            GameManipulator.lastScore = 0
 
-             # Clear keys
-             GameManipulator.setGameOutput(0.5)
+            # Clear keys
+            GameManipulator.setGameOutput(0.5)
 
-             # Clear sensors
-             GameManipulator.sensors[0].lastComputeSpeed = 0
-             GameManipulator.sensors[0].lastSpeeds = []
-             GameManipulator.sensors[0].lastValue = 1
-             GameManipulator.sensors[0].value = 1
-             GameManipulator.sensors[0].speed = 0
-             GameManipulator.sensors[0].size = 0
+            # Clear sensors
+            GameManipulator.sensors[0].lastComputeSpeed = 0
+            GameManipulator.sensors[0].lastSpeeds = []
+            GameManipulator.sensors[0].lastValue = 1
+            GameManipulator.sensors[0].value = 1
+            GameManipulator.sensors[0].speed = 0
+            GameManipulator.sensors[0].size = 0
 
-             # Clar Output flags
-             GameManipulator.lastOutputSet = 'NONE'
+            # Clar Output flags
+            GameManipulator.lastOutputSet = 'NONE'
 
-             # Trigger callback and clear
-             if GameManipulator.toStartGame:
-                 GameManipulator.onGameStart()
-                 GameManipulator.toStartGame = None
+            # Trigger callback and clear
+            if GameManipulator.toStartGame:
+                GameManipulator.onGameStart()
+                GameManipulator.toStartGame = None
 
     # console.log('GAME RUNNING '+self.points)
 
@@ -180,35 +187,28 @@ class GameManipulator(object):
 # Call this to start a fresh new game
 # Will wait untill game has ended,
 # and call the `next` callback
-    def startNewGame(next):
+    @staticmethod
+    def startNewGame(next_call):
 
           # Refresh state
         GameManipulator.readGameState()
 
         # If game is already over, press space
         if GameManipulator.gamestate == 'OVER':
-            clearInterval(_startKeyInterval)
+            timer.cancel()
 
           # Set start callback
-            GameManipulator.onGameStart = function (argument) {
-            clearInterval(_startKeyInterval)
-            next && next()
-          }
+            GameManipulator.onGameStart = lambda argument: timer.cancel() or (next_call and next_call())
 
           # Press space to begin game (repetidelly)
-          _startKeyInterval = setInterval(function (){
-            robot.keyTap(' ')
-          }, 300)
+            timer = Timer(300, lambda x:pyautogui.press(' '))
 
           # Refresh state
-          GameManipulator.readGameState()
+            GameManipulator.readGameState()
 
-        } else {
+        else:
           # Wait die, and call recursive action
-          GameManipulator.onGameEnd = function () {
-            GameManipulator.startNewGame(next)
-          }
-        }
+            GameManipulator.onGameEnd = lambda x: GameManipulator.startNewGame(next_call)
 
 
 
@@ -218,10 +218,11 @@ class GameManipulator(object):
 # Basicaly, checks if an object has
 # passed trough the sensor and the
 # value is now higher than before
+    @staticmethod
     def computePoints():
         for sensor in GameManipulator.sensors:
             if sensor.value > 0.5 and sensor.lastValue < 0.3:
-                GameManipulator.points++
+                GameManipulator.points += 1
         print 'POINTS= '+ GameManipulator.points
       # console.log('POINTS= '+GameManipulator.points)
 
@@ -237,10 +238,11 @@ class GameManipulator(object):
 # SIZE and it's speed
 #
 # Note= We currently only have a sensor.
+    @staticmethod
     def readSensors():
         offset = GameManipulator.offset
 
-        startTime = datetime.now()
+        startTime = time.time()
 
         for sensor in GameManipulator.sensors:
           # Calculate absolute position of ray tracing
@@ -263,7 +265,7 @@ class GameManipulator(object):
                 # Invert mode?
                 False,
                 # Iteration limit
-                (GameManipulator.width * sensor.length) / sensor.step[0])
+                (GameManipulator.width * sensor.length) / sensor.step[0], pyautogui.screenshot().resize((screenSize.width, screenSize.height)).convert('RGB'))
 
             # Save lastValue
             sensor.lastValue = sensor.value
@@ -278,7 +280,7 @@ class GameManipulator(object):
                   [-2, 0],
                   COLOR_DINOSAUR,
                   False,
-                  75 / 2
+                  75 / 2, pyautogui.screenshot().resize((screenSize.width, screenSize.height)).convert('RGB')
                 )
 
                 # If no end point, set the start point as end
@@ -323,13 +325,13 @@ class GameManipulator(object):
             # Save length/size of sensor value
             sensor.size = min(sensor.size, 1.0)
 
-            startTime = datetime.now()
+            startTime = time.time()
 
         # Compute points
         GameManipulator.computePoints()
 
         # Call sensor callback (to act)
-        GameManipulator.onSensorData && GameManipulator.onSensorData()
+        GameManipulator.onSensorData and GameManipulator.onSensorData()
 
 
 # Set action to game
@@ -337,10 +339,7 @@ class GameManipulator(object):
 #  0.00 to  0.45= DOWN
 #  0.45 to  0.55= NOTHING
 #  0.55 to  1.00= UP (JUMP)
-gameManipulator = GameManipulator()
-gameManipulator.lastOutputSet = 'NONE'
-gameManipulator.lastOutputSetTime = 0
-
+    @staticmethod
     def setGameOutput(output):
 
         GameManipulator.gameOutput = output
@@ -369,12 +368,14 @@ gameManipulator.lastOutputSetTime = 0
                 pyautogui.keyUp('up')
                 pyautogui.keyDown('down')
 
-          gameManipulator.lastOutputSet = GameManipulator.gameOutputString
+         
+        GameManipulator.lastOutputSet = GameManipulator.gameOutputString
 
 
 #
 # Simply maps an real number to string actions
 #
+    @staticmethod
     def getDiscreteState(value):
         if value < 0.45:
             return 'DOWN'
@@ -387,6 +388,7 @@ gameManipulator.lastOutputSetTime = 0
 
     # Click on the Starting point
     # to make sure game is focused
-    def focusGame()
-        pyautogui.moveTo(gameManipulator.offset[0], gameManipulator.offset[1])
+    @staticmethod
+    def focusGame():
+        pyautogui.moveTo(GameManipulator.offset[0], GameManipulator.offset[1])
         pyautogui.click()

@@ -53,7 +53,7 @@ class Scanner(object):
 #
 #  Example: (X direction)
 #    scanUntil([0,0], [1, 0], "000000")
-    def scanUntil(self, start, delta, matchColor, inverted, iterLimit):
+    def scanUntil(self, start, delta, matchColor, inverted, iterLimit, screenshot):
         color, iterations = [0]*2
 
         # (CLONE instead of using the real one)
@@ -62,10 +62,10 @@ class Scanner(object):
         if delta[0] == 0 and delta[1] == 0:
           return None
 
-
         while not self.isOutOfBound(current):
           # Check current pixel
-            color_matched = pyautogui.pixelMatchesColor(current[0], current[1], matchColor)
+            color = screenshot.getpixel((current[0], current[1]))
+            color_matched = color == matchColor
 
             if not inverted and color_matched:
                 return current
