@@ -19,7 +19,7 @@ class Scanner(object):
 
 # Check if the given position is outside the Screen
     def isOutOfBound(self, pos):
-        if pos[0] < 0 or pos[1] < 0 or pos[0] >= screenSize.width or pos[1] or screenSize.height:
+        if pos[0] < 0 or pos[1] < 0 or pos[0] >= screenSize.width or pos[1] >= screenSize.height:
             return True
         return False
 
@@ -34,7 +34,7 @@ class Scanner(object):
         if pos[1] < 0:
             pos[1] = 0
         if pos[1] >= screenSize.height:
-            pos[1] = screenSize.heigh - 1
+            pos[1] = screenSize.height - 1
         return pos
 
 
@@ -54,7 +54,7 @@ class Scanner(object):
 #  Example: (X direction)
 #    scanUntil([0,0], [1, 0], "000000")
     def scanUntil(self, start, delta, matchColor, inverted, iterLimit):
-        color, current, iterations = [0]*4
+        color, iterations = [0]*2
 
         # (CLONE instead of using the real one)
         current = self.makeInBounds([start[0], start[1]])
