@@ -1,0 +1,2 @@
+class UI(object):
+    pass
