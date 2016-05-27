@@ -5,9 +5,9 @@ from drawille import Canvas
 from utils import ThreadJob
 import threading
 
-# global flags defining actions, would like them to be object vars
-TIME_SORT = False
-MEMORY_SORT = False
+
+LOG_FILENAME = '/tmp/ui.log'
+logging.basicConfig(filename=LOG_FILENAME,level=logging.INFO)
 
 class CustomMultiLineAction(npyscreen.MultiLineAction):
     '''
@@ -21,13 +21,24 @@ class CustomMultiLineAction(npyscreen.MultiLineAction):
         self.add_handlers({
             "^K" : self.save
             })
+        self.add_handlers({
+            "s": self.stop
+            })
 
     def quit(self,*args,**kwargs):
         raise KeyboardInterrupt
 
     def save(self,*args,**kwargs):
         self.value = 'saved into file'
-
+    
+    def stop(self, *args, **kwargs):
+        if self.learn.state == 'STOP':
+            self.learn.state = 'LEARNING';
+            self.gm.focusGame();
+            self.learn.startLearning();
+        else:
+            self.learn.state = 'STOP';
+    
 
 
 class MultiLineWidget(npyscreen.BoxTitle):
@@ -82,7 +93,7 @@ class UI(npyscreen.NPSApp):
         # internal data structures
         # c.set(89,31) -- here the corner point will be set
         # the upper bounds are the excluded points
-        self.CHART_HEIGHT = 32
+        self.CHART_HEIGHT = 16
         self.CHART_LENGTH = 90
         self.CHART_WIDTH = 10
 
@@ -96,37 +107,42 @@ class UI(npyscreen.NPSApp):
         '''
           
         chart_array = self.network_array
-        SIZE_OFFSET = 10
-        DISTANCE_OFFSET = 30
-        SPEED_OFFSET = 50
-        ACTIVATION_OFFSET = 75
+        SIZE_OFFSET = 3*self.CHART_WIDTH
+        DISTANCE_OFFSET = self.CHART_WIDTH
+        SPEED_OFFSET = 5*self.CHART_WIDTH
+        ACTIVATION_OFFSET = 7*self.CHART_WIDTH
 
         self.logger.info(self.CHART_LENGTH)
-        for s in range(SIZE_OFFSET, self.CHART_WIDTH):
-            chart_array[s] = y['size']*100
-        for d in range(DISTANCE_OFFSET, self.CHART_WIDTH):
-            chart_array[d] = y['distance']*100
-        for s in range(SPEED_OFFSET, self.CHART_WIDTH):
-            chart_array[s] = y['speed']*100
-        for s in range(ACTIVATION_OFFSET, self.CHART_WIDTH):
-            chart_array[s] = y['activation']*100
+        for s in range(SIZE_OFFSET, SIZE_OFFSET+self.CHART_WIDTH):
+            chart_array[s] = self.bar_length(y['size'])
+        for d in range(DISTANCE_OFFSET, DISTANCE_OFFSET+self.CHART_WIDTH):
+            chart_array[d] = self.bar_length(y['distance'])
+        for s in range(SPEED_OFFSET, SPEED_OFFSET+self.CHART_WIDTH):
+            chart_array[s] = self.bar_length(y['speed'])
+        for s in range(ACTIVATION_OFFSET, ACTIVATION_OFFSET+self.CHART_WIDTH):
+            chart_array[s] = self.bar_length(y['activation'])
         
+        self.logger.info(chart_array)
 
         # now draw on the canvas
         for ctr in xrange(self.CHART_LENGTH):
             end_point = self.CHART_HEIGHT-chart_array[ctr]
             # end_point will be excluded
+            self.logger.info(end_point)
             for i in xrange(self.CHART_HEIGHT,end_point,-1):
                 canvas.set(ctr,i)
 
         return canvas.frame(0,0,self.CHART_LENGTH,self.CHART_HEIGHT)
+    def bar_length(self,y):
+        return int(y*self.CHART_HEIGHT)
+
 
     def while_waiting(self):
         '''
             called periodically when user is not pressing any key
         '''
         if not self.update_thread:
-            t = ThreadJob(self.update,self.stop_event,1)
+            t = ThreadJob(self.update,self.stop_event,0.5)
             self.update_thread = t
             self.update_thread.start()
             self.logger.info('Started GUI update thread')
@@ -144,7 +160,7 @@ class UI(npyscreen.NPSApp):
             self.genome_stats.value = row1
 
             if gm.gameOutput:
-                row2 = 'Action: %s \n Activation: %s \n' %(gm.gameOutputString, gm.gameOutput)
+                row2 = 'Action: %s \n Activation: %s \n' %(self.gm.gameOutputString, self.gm.gameOutput)
             
             else:
                 row2 = 'Loading...'
@@ -153,11 +169,13 @@ class UI(npyscreen.NPSApp):
 
             ### current state
             network_canvas = Canvas()
-            y = {'size':gm.sensors[0].size,
-            'distance':gm.sensors[0].value,
-            'speed':gm.sensors[0].speed,
-            'activation':gm.gameOutput}
-            self.network_chart.value = (self.draw_chart(network_canvas,y))
+            y = {'size':self.gm.sensors[0].size,
+            'distance':self.gm.sensors[0].value,
+            'speed':self.gm.sensors[0].speed,
+            'activation':self.gm.gameOutput}
+            self.network_chart.value = (self.draw_chart(network_canvas,y)) + \
+            '\n   %s     %s    %s    %s  \n     Distance    Size    Speed Activation\n' % (self.gm.sensors[0].value,
+                self.gm.sensors[0].size,self.gm.sensors[0].speed,self.gm.gameOutput)
             self.network_chart.display()
 
         # catch the KeyError caused to c
@@ -167,7 +185,8 @@ class UI(npyscreen.NPSApp):
 
     def main(self):
         npyscreen.setTheme(npyscreen.Themes.DefaultTheme)
-        self.network_array = [0]*self.CHART_LENGTH
+
+
         # time(ms) to wait for user interactions
         self.keypress_timeout_default = 10
 
@@ -181,25 +200,31 @@ class UI(npyscreen.NPSApp):
 
         self.Y_SCALING_FACTOR = float(max_y)/27
         self.X_SCALING_FACTOR = float(max_x)/104
+        
+        self.CHART_LENGTH = int(self.CHART_LENGTH*self.X_SCALING_FACTOR)
+        self.CHART_HEIGHT = int(self.CHART_HEIGHT*self.Y_SCALING_FACTOR)
+        self.CHART_WIDTH = int(self.CHART_LENGTH/9)
+        self.network_array = [0]*self.CHART_LENGTH
 
         self.network_chart = self.window.add(MultiLineWidget,
                                            name="network stats",
                                            relx=1,
                                            rely=1,
-                                           max_height=int(math.ceil(5*self.Y_SCALING_FACTOR)),
+                                           max_height=int(math.ceil(8*self.Y_SCALING_FACTOR)),
                                            max_width=int(100*self.X_SCALING_FACTOR)
                                            )
          
-        network_canvas = Canvas()    
-        self.network_chart.value = (self.draw_chart(network_canvas,{'size':.3,'distance':.2,'speed':.16,'activation':.20}))
-        
+        network_canvas = Canvas()  
+        self.logger.info('yaa')  
+        self.network_chart.value =  '\n\n    Distance    Size    Speed     Activation\n'
+        self.logger.info(self.network_chart.value)
         self.network_chart.entry_widget.editable = False
         self.network_chart.display()
 
         self.logs_grid = self.window.add(MultiLineWidget,
                                            name="Logs",
                                            relx=1,
-                                           rely=int(math.ceil(5*self.Y_SCALING_FACTOR)+1),
+                                           rely=int(math.ceil(8*self.Y_SCALING_FACTOR)+1),
                                            max_height=int(math.ceil(5*self.Y_SCALING_FACTOR)),
                                            max_width=int(100*self.X_SCALING_FACTOR)
                                            )
@@ -213,9 +238,9 @@ class UI(npyscreen.NPSApp):
         self.game_stats = self.window.add(MultiLineActionWidget,
                                                name="Game Stats",
                                                relx=1,
-                                               rely=int(math.ceil(10*self.Y_SCALING_FACTOR)+3),
-                                               max_height=int(10*self.Y_SCALING_FACTOR),
-                                               max_width=int(50*self.X_SCALING_FACTOR)
+                                               rely=int(math.ceil(13*self.Y_SCALING_FACTOR)+3),
+                                               max_height=int(6*self.Y_SCALING_FACTOR),
+                                               max_width=int(48*self.X_SCALING_FACTOR)
                                                )
 
         self.game_stats.entry_widget.values = []
@@ -225,9 +250,9 @@ class UI(npyscreen.NPSApp):
         self.genome_stats = self.window.add(MultiLineActionWidget,
                                                name="Genome Stats",
                                                relx=int(52*self.X_SCALING_FACTOR),
-                                               rely=int(math.ceil(10*self.Y_SCALING_FACTOR)+3),
-                                               max_height=int(10*self.Y_SCALING_FACTOR),
-                                               max_width=int(50*self.X_SCALING_FACTOR)
+                                               rely=int(math.ceil(13*self.Y_SCALING_FACTOR)+3),
+                                               max_height=int(6*self.Y_SCALING_FACTOR),
+                                               max_width=int(48*self.X_SCALING_FACTOR)
                                                )
         
         self.genome_stats.entry_widget.values = []
@@ -239,21 +264,21 @@ class UI(npyscreen.NPSApp):
                                        rely=int(24*self.Y_SCALING_FACTOR)
                                        )
         
-        self.actions.value = "^K : save in file    q : quit "
+        self.actions.value = "^K : save in file S: to stop learning   q : quit "
         self.actions.display()
         self.actions.editable = False
 
-        self.CHART_LENGTH = int(self.CHART_LENGTH*self.X_SCALING_FACTOR)
-        self.CHART_HEIGHT = int(self.CHART_HEIGHT*self.Y_SCALING_FACTOR)
+
 
         # fix for index error
-        self.network_array = [0]*self.CHART_LENGTH
+        #self.network_array = [0]*self.CHART_LENGTH
         
 
         # add subwidgets to the parent widget
         self.window.edit()
 if __name__ == '__main__':
     try:
+        
         global_stop_event = threading.Event()
         UI({},{},global_stop_event).run()
 

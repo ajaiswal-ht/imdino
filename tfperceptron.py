@@ -1,103 +1,116 @@
 '''
 A Multilayer Perceptron implementation example using TensorFlow library.
-This example is using the MNIST database of handwritten digits (http://yann.lecun.com/exdb/mnist/)
-Author: Aymeric Damien
-Project: https://github.com/aymericdamien/TensorFlow-Examples/
+
 '''
 
-# Import MINST data
-import input_data
-mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)
-
 import tensorflow as tf
+import numpy
 
 
-class Peceptron(object):
-# Parameters
-    learning_rate = 0.001
-    training_epochs = 15
-    batch_size = 100
-    display_step = 1
+class Perceptron(object):
 
-    # Network Parameters
-    n_hidden_1 = 4 # 1st layer num features
-    n_hidden_2 = 4 # 2nd layer num features
-    n_input = 3 # distance, speed and size
-    n_output = 1 # score between 0 to 1 in floating numbers
-
-    def __init__(n_input,n_hidden_1, n_hidden_2, n_output):
+    def __init__(self, n_input,n_hidden_1, n_hidden_2, n_output, sess):
         self.n_input = n_input
         self.n_hidden_1 = n_hidden_1
-        self.n_hidden_2 = n_hidden_s
+        self.n_hidden_2 = n_hidden_2
         self.n_output = n_output
-        weights = {
-        'h1': tf.Variable(tf.random_normal([n_input, n_hidden_1])),
-        'h2': tf.Variable(tf.random_normal([n_hidden_1, n_hidden_2])),
-        'out': tf.Variable(tf.random_normal([n_hidden_2, n_output]))
-    }
-    biases = {
-        'b1': tf.Variable(tf.random_normal([n_hidden_1])),
-        'b2': tf.Variable(tf.random_normal([n_hidden_2])),
-        'out': tf.Variable(tf.random_normal([n_output]))
-    }
-        layer_1 = tf.nn.relu(tf.add(tf.matmul(_X, _weights['h1']), _biases['b1'])) #Hidden layer with RELU activation
-        layer_2 = tf.nn.relu(tf.add(tf.matmul(layer_1, _weights['h2']), _biases['b2'])) #Hidden layer with RELU activation
+        self.sess = sess
+        self.initialized = False
+        self.weights = {'h1':None, 'h2':None, 'out': None}
+        self.biases = {'b1':None, 'b2':None, 'out':None}
+        
+    
+
+
+
+     # Create model
+    def multilayer_perceptron(self, X, weights, biases):
+        layer_1 = tf.sigmoid(tf.add(tf.matmul(X, weights['h1']), biases['b1']))
+        layer_2 = tf.sigmoid(tf.add(tf.matmul(layer_1, weights['h2']), biases['b2']))
+
+        return tf.sigmoid(tf.matmul(layer_2, weights['out']) + biases['out'])
+   
+        
+    
+
 
     # tf Graph input
-    x = tf.placeholder("float", [None, n_input])
-    y = tf.placeholder("float", [None, n_output])
-
-    # Create model
-    def multilayer_perceptron(_X, _weights, _biases):
-        layer_1 = tf.sigmoid((tf.add(tf.matmul(_X, _weights['h1']), _biases['b1'])) #Hidden layer with sigmoid activation
-        layer_2 = tf.sigmoid((tf.add(tf.matmul(layer_1, _weights['h2']), _biases['b2'])) #Hidden layer with sigmoid activation
-        return tf.matmul(layer_2, _weights['out']) + _biases['out']
-
+    
+    def init1(self):
+        self.weights = {
+        'h1': tf.Variable(tf.random_normal([self.n_input, self.n_hidden_1])),
+        'h2': tf.Variable(tf.random_normal([self.n_hidden_1, self.n_hidden_2])),
+        'out': tf.Variable(tf.random_normal([self.n_hidden_2, self.n_output]))
+        }
+        self.biases = {
+            'b1': tf.Variable(tf.random_normal([self.n_hidden_1])),
+            'b2': tf.Variable(tf.random_normal([self.n_hidden_2])),
+            'out': tf.Variable(tf.random_normal([self.n_output]))
+        }
+        self.x = tf.placeholder('float', [None, self.n_input])
+        self.pred = self.multilayer_perceptron(self.x, self.weights, self.biases)
+        self.init = tf.initialize_all_variables()
+        self.sess.run(self.init)
+        self.initialized = True
+   
     # Store layers weight & bias
-    weights = {
-        'h1': tf.Variable(tf.random_normal([n_input, n_hidden_1])),
-        'h2': tf.Variable(tf.random_normal([n_hidden_1, n_hidden_2])),
-        'out': tf.Variable(tf.random_normal([n_hidden_2, n_classes]))
-    }
-    biases = {
-        'b1': tf.Variable(tf.random_normal([n_hidden_1])),
-        'b2': tf.Variable(tf.random_normal([n_hidden_2])),
-        'out': tf.Variable(tf.random_normal([n_classes]))
-    }
+    def activate(self,inputs):
+        i = tf.constant([inputs])
+        if self.initialized is False:
+            self.init1()
+        outputs = self.sess.run(self.pred, feed_dict={self.x: inputs})
+        return outputs
 
-    # Construct model
-    pred = multilayer_perceptron(x, weights, biases)
+    def get_dict(self):
+        arr1 = tf.reshape(self.weights['h1'], [self.n_input*self.n_hidden_1]).eval(session=self.sess)
+        arr2 = tf.reshape(self.weights['h2'], [self.n_hidden_1*self.n_hidden_2]).eval(session=self.sess)
+        arr3 = tf.reshape(self.weights['out'],[self.n_hidden_2*self.n_output]).eval(session=self.sess)
+        weight_arr = numpy.append(numpy.append(arr1, arr2), arr3)
+        biases_arr = numpy.append(numpy.append(self.biases['b1'].eval(session=self.sess),
+            self.biases['b2'].eval(session=self.sess)),  
+            self.biases['out'].eval(session=self.sess))
 
-    # Define loss and optimizer
-    cost = tf.reduce_mean(tf.pow(pred - y, 2)) # MSE
-    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost) # Adam Optimizer
+        return {"weights":weight_arr,"biases":biases_arr}
 
-    # Initializing the variables
-    init = tf.initialize_all_variables()
+    def reload(self, param_dict):
+        weights_arr = param_dict['weights']
+        biases_arr = param_dict['biases']
+        dim1 = self.n_input*self.n_hidden_1
+        dim2 = self.n_hidden_1*self.n_hidden_2
+        dim3 = self.n_hidden_2*self.n_output
+        h1 = tf.convert_to_tensor(weights_arr[:dim1])
+        h2 = tf.convert_to_tensor(weights_arr[dim1:dim1+dim2])
+        out = tf.convert_to_tensor(weights_arr[dim1+dim2:])
 
-    # Launch the graph
+        self.weights['h1'] = tf.reshape(h1,[self.n_input,self.n_hidden_1])
+        self.weights['h2'] = tf.reshape(h2,[self.n_hidden_1,self.n_hidden_2])
+        self.weights['out'] = tf.reshape(out,[self.n_hidden_2,self.n_output])
+        self.biases['b1'] = tf.convert_to_tensor(biases_arr[:self.n_hidden_1])
+        self.biases['b2'] = tf.convert_to_tensor(biases_arr[self.n_hidden_1:self.n_hidden_1+self.n_hidden_2])
+        self.biases['out'] = tf.convert_to_tensor(biases_arr[self.n_hidden_1+self.n_hidden_2:])
+        self.x = tf.placeholder('float', [None, self.n_input])
+        self.init = tf.initialize_all_variables()
+        self.sess.run(self.init)
+        self.pred = self.multilayer_perceptron(self.x, self.weights, self.biases)
+        self.initialized = True
+
+
+    
+        
+   
+    
+if __name__ == '__main__':
     with tf.Session() as sess:
-        sess.run(init)
-
-        # Training cycle
-        for epoch in range(training_epochs):
-            avg_cost = 0.
-            total_batch = int(mnist.train.num_examples/batch_size)
-            # Loop over all batches
-            for i in range(total_batch):
-                batch_xs, batch_ys = mnist.train.next_batch(batch_size)
-                # Fit training using batch data
-                sess.run(optimizer, feed_dict={x: batch_xs, y: batch_ys})
-                # Compute average loss
-                avg_cost += sess.run(cost, feed_dict={x: batch_xs, y: batch_ys})/total_batch
-            # Display logs per epoch step
-            if epoch % display_step == 0:
-                print "Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(avg_cost)
-
-        print "Optimization Finished!"
-
-        # Test model
-        correct_prediction = tf.equal(tf.argmax(pred, 1), tf.argmax(y, 1))
-        # Calculate accuracy
-        accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
-        print "Accuracy:", accuracy.eval({x: mnist.test.images, y: mnist.test.labels})
+        p = Perceptron(3,4,4,1,sess)
+        
+        print p.activate([[0.3,0.6,0.1]])
+        print p.activate([[0.4,0.6,0.1]])
+        print p.activate([[0.5,0.6,0.1]])
+        d = p.get_dict()
+        print len(d['weights'])
+        print len(d['biases'])
+        p1 = Perceptron(3,4,4,1,sess)
+        p1.reload(d)
+        print p1.activate([[0.3,0.6,0.1]])
+        print p1.activate([[0.4,0.6,0.1]])
+        print p1.activate([[0.5,0.6,0.1]])

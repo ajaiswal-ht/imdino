@@ -2,7 +2,8 @@ from game_manipulator import GameManipulator
 from learner import Learner
 import pyautogui
 from ui import UI
-from threading import Timer
+from utils import ThreadJob
+import threading
 
 
 
@@ -24,7 +25,16 @@ def main():
         print 'FAILED TO FIND GAME!'
         return
     # Initialize UI
-    UI(GameManipulator, Learner)
+
+    global_stop_event = threading.Event()
+    try:
+        UI(GameManipulator, Learner, global_stop_event).run()
+    except KeyboardInterrupt:
+        global_stop_event.set()
+        # clear log file
+        with open('/tmp/ui.log','w'):
+            pass
+        raise SystemExit
 
 
     # Init Learner
@@ -32,8 +42,8 @@ def main():
 
 
     # Start reading game state and sensors
-    Timer(40,GameManipulator.readSensors)
-    Timer(GameManipulator.readGameState, 200)
+    ThreadJob(GameManipulator.readSensors, global_stop_event, 0.04).run()
+    ThreadJob(GameManipulator.readGameState,global_stop_event, 0.200).run()
 
 if __name__ == "__main__":
     main()

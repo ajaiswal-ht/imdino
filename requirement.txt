@@ -2,3 +2,5 @@ pyobjc-framework-Quartz
 pyobjc
 pillow
 pyautogui
+drawille==0.1.0
+npyscreen==4.10.5

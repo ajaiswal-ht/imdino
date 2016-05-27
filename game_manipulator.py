@@ -1,5 +1,5 @@
 import pyautogui
-from threading import Timer
+from utils import ThreadJob
 import scanner
 from datetime import datetime
 import numpy as np
@@ -52,6 +52,7 @@ class GameManipulator(object):
     gameOverOffset = [190, -82]
     lastOutputSet = 'NONE'
     lastOutputSetTime = 0
+    event = threading.Event()
 
     # Stores an array of "sensors" (Ray tracings)
     # Positions are always relative to global "offset"
@@ -195,13 +196,13 @@ class GameManipulator(object):
 
         # If game is already over, press space
         if GameManipulator.gamestate == 'OVER':
-            timer.cancel()
+            GameManipulator.event.set()
 
           # Set start callback
-            GameManipulator.onGameStart = lambda argument: timer.cancel() or (next_call and next_call())
+            GameManipulator.onGameStart = lambda argument: GameManipulator.event.set() or (next_call and next_call())
 
           # Press space to begin game (repetidelly)
-            timer = Timer(300, lambda x:pyautogui.press(' '))
+            ThreadJob(lambda x:pyautogui.press(' '),GameManipulator.event, 0.3 ).run()
 
           # Refresh state
             GameManipulator.readGameState()
@@ -243,7 +244,7 @@ class GameManipulator(object):
         offset = GameManipulator.offset
 
         startTime = time.time()
-
+        screenshot = pyautogui.screenshot().resize((screenSize.width, screenSize.height)).convert('RGB')
         for sensor in GameManipulator.sensors:
           # Calculate absolute position of ray tracing
             start = [
@@ -265,7 +266,7 @@ class GameManipulator(object):
                 # Invert mode?
                 False,
                 # Iteration limit
-                (GameManipulator.width * sensor.length) / sensor.step[0], pyautogui.screenshot().resize((screenSize.width, screenSize.height)).convert('RGB'))
+                (GameManipulator.width * sensor.length) / sensor.step[0], screenshot)
 
             # Save lastValue
             sensor.lastValue = sensor.value
@@ -280,7 +281,7 @@ class GameManipulator(object):
                   [-2, 0],
                   COLOR_DINOSAUR,
                   False,
-                  75 / 2, pyautogui.screenshot().resize((screenSize.width, screenSize.height)).convert('RGB')
+                  75 / 2, screenshot
                 )
 
                 # If no end point, set the start point as end
