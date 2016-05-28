@@ -18,10 +18,12 @@ class Perceptron(object):
         self.initialized = False
         self.weights = {'h1':None, 'h2':None, 'out': None}
         self.biases = {'b1':None, 'b2':None, 'out':None}
+        self.fitness = 0
         
     
 
-
+    def set_fitness(self, points):
+        slef.fitness = points
 
      # Create model
     def multilayer_perceptron(self, X, weights, biases):
@@ -93,6 +95,9 @@ class Perceptron(object):
         self.sess.run(self.init)
         self.pred = self.multilayer_perceptron(self.x, self.weights, self.biases)
         self.initialized = True
+
+    def __unicode__(self):
+        return str(self.fitness)
 
 
     

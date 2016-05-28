@@ -4,9 +4,11 @@ import scanner
 from datetime import datetime
 import numpy as np
 import time
+import threading
+import logging
 # Cache screen size
 screenSize = scanner.Size(pyautogui.size())
-
+logger=logging.getLogger('gm')
 
 
 
@@ -19,10 +21,11 @@ class Sensor(object):
     def __init__(self):
         self.lastValue = 1
 
-        self.value = None
+        self.value = 1
         self.offset = [84, -15]
         self.step = [4, 0]
         self.length = 0.3
+        self.lastScore = 0
 
         # Speed
         self.speed = 0
@@ -142,7 +145,7 @@ class GameManipulator(object):
         ],
 
         [2, 0], COLOR_DINOSAUR, False, 20, pyautogui.screenshot().resize((screenSize.width, screenSize.height)).convert('RGB'))
-
+        logger.info("%s, %s" %(found,GameManipulator.gamestate ))
         if found and not GameManipulator.gamestate == 'OVER':
             GameManipulator.gamestate = 'OVER'
 
@@ -178,9 +181,9 @@ class GameManipulator(object):
             GameManipulator.lastOutputSet = 'NONE'
 
             # Trigger callback and clear
-            if GameManipulator.toStartGame:
+            if GameManipulator.onGameStart:
                 GameManipulator.onGameStart()
-                GameManipulator.toStartGame = None
+                GameManipulator.onGameStart = None
 
     # console.log('GAME RUNNING '+self.points)
 
@@ -224,7 +227,7 @@ class GameManipulator(object):
         for sensor in GameManipulator.sensors:
             if sensor.value > 0.5 and sensor.lastValue < 0.3:
                 GameManipulator.points += 1
-        print 'POINTS= '+ GameManipulator.points
+        logger.info('POINTS=%d'%( GameManipulator.points))
       # console.log('POINTS= '+GameManipulator.points)
 
 
@@ -240,6 +243,13 @@ class GameManipulator(object):
 #
 # Note= We currently only have a sensor.
     @staticmethod
+    def setSensorData(x):
+        GameManipulator.onSensorData = x
+
+    @staticmethod
+    def setEndGame(x):
+        GameManipulator.onGameEnd = x
+    @staticmethod
     def readSensors():
         offset = GameManipulator.offset
 
@@ -253,7 +263,7 @@ class GameManipulator(object):
             ]
 
             # Compute cursor forwarding
-            forward = sensor.value * GameManipulator.width * 0.8 * GameManipulator.length
+            forward = sensor.value * GameManipulator.width * 0.8 * sensor.length
 
             end = Scanner.scanUntil(
               # console.log(
@@ -332,6 +342,7 @@ class GameManipulator(object):
         GameManipulator.computePoints()
 
         # Call sensor callback (to act)
+        logger.info(GameManipulator.onSensorData)
         GameManipulator.onSensorData and GameManipulator.onSensorData()
 
 

@@ -122,13 +122,13 @@ class UI(npyscreen.NPSApp):
         for s in range(ACTIVATION_OFFSET, ACTIVATION_OFFSET+self.CHART_WIDTH):
             chart_array[s] = self.bar_length(y['activation'])
         
-        self.logger.info(chart_array)
+        
 
         # now draw on the canvas
         for ctr in xrange(self.CHART_LENGTH):
             end_point = self.CHART_HEIGHT-chart_array[ctr]
             # end_point will be excluded
-            self.logger.info(end_point)
+            
             for i in xrange(self.CHART_HEIGHT,end_point,-1):
                 canvas.set(ctr,i)
 
@@ -142,7 +142,7 @@ class UI(npyscreen.NPSApp):
             called periodically when user is not pressing any key
         '''
         if not self.update_thread:
-            t = ThreadJob(self.update,self.stop_event,0.5)
+            t = ThreadJob(self.update,self.stop_event,0.6)
             self.update_thread = t
             self.update_thread.start()
             self.logger.info('Started GUI update thread')
@@ -155,11 +155,11 @@ class UI(npyscreen.NPSApp):
         try:
             
             # game Stats
-            row1 = 'Status: %s \n Fitness: %s \n GameStatus: %s \n Generation: %s : %s/%s' %(self.learn.state, self,gm.points, 
-                self.gm.gamestate, self.learn.generation, self.learn.genome, self.learn.genomes.length) 
+            row1 = 'Status: %s \n Fitness: %s \n GameStatus: %s \n Generation: %s : %s/%s' %(self.learn.state, self.gm.points, 
+                self.gm.gamestate, self.learn.generation, self.learn.genome, len(self.learn.genomes)) 
             self.genome_stats.value = row1
-
-            if gm.gameOutput:
+            self.genome_stats.display()
+            if self.gm.gameOutput:
                 row2 = 'Action: %s \n Activation: %s \n' %(self.gm.gameOutputString, self.gm.gameOutput)
             
             else:
