@@ -4,8 +4,10 @@ import logging
 import tensorflow as tf
 from threading import Thread
 import random
+from collections import OrderedDict
 import collections
 import copy
+import time
 
 logger = logging.getLogger('dino.learner')
 class Learner(object):
@@ -20,7 +22,7 @@ class Learner(object):
         self.genomeUnits = genomeUnits
         self.selection = selection
         self.mutationProb = mutationProb
-        self.sess = tf.Session()
+        #self.sess = tf.Session()
         #self.saver = tf.train.Saver()
 
 
@@ -29,8 +31,8 @@ class Learner(object):
     def startLearning(self):
 
         # Build genomes if needed
-        while (self.genomes.length < self.genomeUnits):
-            self.genomes.push(self.buildGenome(3, 1))
+        while (len(self.genomes) < self.genomeUnits):
+            self.genomes.append(self.buildGenome(3, 1))
   
         self.executeGeneration()
   
@@ -51,17 +53,22 @@ class Learner(object):
   
 
         self.generation += 1
-        logger.info('Executing generation '+self.generation);
+        logger.info('Executing generation %d'%(self.generation,))
 
         self.genome = 0
 
-        
-        self.current_thread = Thread(target = self.executeGenome)
-        self.next_thread = None
-        self.current_thread.start()
-        self.current_thread.join()
-        if self.next_thread:
-            self.next_thread.join()
+        while(self.genome< len(self.genomes)):
+            t= Thread(target=self.executeGenome)
+            t.start()
+            while t.is_alive():
+                time.sleep(5)
+        self.genify()
+        #self.current_thread = Thread(target = self.executeGenome)
+        #self.next_thread = None
+        #self.current_thread.start()
+        #self.current_thread.join()
+        #if self.next_thread:
+        #    self.next_thread.join()
     
     def genify(self):
 
@@ -72,31 +79,31 @@ class Learner(object):
         bestGenomes = copy.copy(self.genomes)
 
         # Cross Over ()
-        while self.genomes.length < self.genomeUnits - 2:
+        while len(self.genomes) <= self.genomeUnits - 2:
             # Get two random Genomes
-            genA = copy.copy(random.choice(bestGenomes))
-            genB = copy.copy(random.choice(bestGenomes))
-
+            genA = random.choice(bestGenomes).copy()
+            genB = random.choice(bestGenomes).copy()
+            #logger.info('weights' + str(genA.weights)+str(genB.weights))
             #Cross over and Mutate
-            newGenome = self.mutate(self.crossOver(genA, genB));
+            newGenome = self.mutate(self.crossOver(genA, genB))
 
             #Add to generation
-            self.genomes.push(newGenome)
+            self.genomes.append(newGenome)
     
 
         # Mutation-only
-        while len(self.genomes) < self.genomeUnits:
+        while len(self.genomes) <= self.genomeUnits:
             # Get two random Genomes
-            gen = copy.copy(random.choice(bestGenomes))
+            gen = random.choice(bestGenomes).copy()
 
             # Cross over and Mutate
             newGenome = self.mutate(gen);
 
             # Add to generation
-            self.genomes.push(newGenome);
+            self.genomes.append(newGenome);
     
 
-        logger.info('Completed generation '+self.generation);
+        logger.info('Completed generation %d' %(self.generation,))
 
         #Execute next generation
         self.executeGeneration();
@@ -107,18 +114,18 @@ class Learner(object):
     # untill the genome list has selectN elements.
     def selectBestGenomes(self):
         d = dict(enumerate(self.genomes))
+        f = []
+        s = []
         selected = OrderedDict(sorted(d.items(), key= lambda t: t[1].fitness, reverse=True)).values()
         selected = selected[:self.selection]
-        logger.info('Fitness: '+ ','.join(selected))
-        return selected;
+        for select in selected:
+            s.append(select.copy())
+            f.append(select.fitness)
+        selected = None
+        logger.info('Fitness: %s' %(str(f),))
+        return s
     
-    def sort_by_fitness(self):
-        q = []
-        for genome in self.genomes:
-            if genome.fitness > max_fitness:
-                q = [genome] + q
-            else:
-                q
+   
 
 
 
@@ -133,31 +140,27 @@ class Learner(object):
   
         genome = self.genomes[self.genome]
         self.genome += 1
-        # Learn.ui.logger.log('Executing genome '+Learn.genome);
+        logger.info('Executing genome %d' %(self.genome,))
         
         # Check if genome has AT LEAST some experience
         if (self.shouldCheckExperience): 
             if not self.checkExperience(genome):
                 genome.fitness = 0;
-                #Learn.ui.logger.log('Genome '+Learn.genome+' has no min. experience');
+                logger.info('Genome %d has no min. experience'%(self.genome))
                 return
     
   
         #Reads sensor data, and apply network
-        self.gm.startNewGame(self.setSensorDataAndEndGame)
-        
+        self.gm.startNewGame(genome)
+        logger.info('starter at 149 in learner')
         #Go to next genome
-        if self.genome < len(self.genomes):
-            self.current_thread = Thread(target = self.executeGenome)
-            self.current_thread.start()
-        else:
-            self.genify()
+        #if self.genome < len(self.genomes):
+        #    self.current_thread = Thread(target = self.executeGenome)
+        #    self.current_thread.start()
+        #else:
+        #    self.genify()
 
-    def setSensorDataAndEndGame(self):
-        self.gm.onSensorData = lambda x: self.gm.setGameOutput(genome.activate([self.gm.sensors[0].value,
-            self.gm.sensors[0].size,
-            self.gm.sensors[0].speed])[0][0]) 
-        self.gm.onEndGame = lambda points: genome.set_fitness(points)
+        
 
 
     # Validate if any acction occur uppon a given input (in this case, distance).
@@ -192,20 +195,20 @@ class Learner(object):
   
         loaded = 0
         for k in genomes:
-            self.genomes.push(genome)
+            self.genomes.append(genome)
             loaded +=1
   
 
-        logger.log('Loaded '+loaded+' genomes!')
+        logger.info('Loaded %d genomes!' %(loaded,))
 
 
 
     # Builds a new genome based on the 
     # expected number of inputs and outputs
     def buildGenome(self, inputs, outputs):
-        logger.log('Build genome '+(self.genomes.length+1));
+        logger.info('Build genome %d' %(len(self.genomes)+1,))
 
-        network = Perceptron(inputs, 4, 4, outputs, self.sess);
+        network = Perceptron(inputs, 4, 4, outputs)
 
         return network;
 
@@ -226,10 +229,10 @@ class Learner(object):
         netA_biases = netA_dict['biases']
         netB_biases = netB_dict['biases']
         cutLocation = int(len(netA_biases) * random.random())
-        netA_updated_biases = numpy.append(netA_biases[(range(0,cutLocation)),],
-            netB_biases[(range(cutLocation, len(netB_biases)+1)),]) 
-        netB_updated_biases = numpy.append(netB_biases[(range(0,cutLocation)),],
-            netA_biases[(range(cutLocation, len(netA_biases)+1)),]) 
+        netA_updated_biases = np.append(netA_biases[(range(0,cutLocation)),],
+            netB_biases[(range(cutLocation, len(netB_biases))),]) 
+        netB_updated_biases = np.append(netB_biases[(range(0,cutLocation)),],
+            netA_biases[(range(cutLocation, len(netA_biases))),]) 
         netA_dict['biases'] = netA_updated_biases
         netB_dict['biases'] = netB_updated_biases
         netA.reload(netA_dict)
@@ -247,8 +250,8 @@ class Learner(object):
         # Mutate
         # get dict from net
         net_dict = net.get_dict()
-        self.mutateDataKeys(net_dict, 'bias', self.mutationProb)
-        self.mutateDataKeys(net_dict, 'weight', self.mutationProb)
+        self.mutateDataKeys(net_dict, 'biases', self.mutationProb)
+        self.mutateDataKeys(net_dict, 'weights', self.mutationProb)
         net.reload(net_dict)
         return net
 

@@ -26,11 +26,10 @@ class Sensor(object):
         self.step = [4, 0]
         self.length = 0.3
         self.lastScore = 0
-        self.lastSpeeds = []
 
         # Speed
         self.speed = 0
-        self.lastComputeSpeed = time.time()
+        self.lastComputeSpeed = 0
 
         # Computes size of the object
         self.size = 0
@@ -54,8 +53,7 @@ class GameManipulator(object):
         # Game State
         self.gamestate = 'OVER'
         self.genome = None
-        self.gameOutput = 0.5
-        self.gameOutputString = 'Norm'
+
         # GameOver Position
         self.gameOverOffset = [190, -82]
         self.lastOutputSet = 'NONE'
@@ -151,8 +149,6 @@ class GameManipulator(object):
 
         [2, 0], COLOR_DINOSAUR, False, 20, pyautogui.screenshot().resize((screenSize.width, screenSize.height)).convert('RGB'))
         logger.info("%s, %s" %(found,self.gamestate ))
-        
-        #Check if game is over, gamestate is not updated yet though game is over. Update it and reset sensors
         if found and not self.gamestate == 'OVER':
             self.gamestate = 'OVER'
 
@@ -160,17 +156,19 @@ class GameManipulator(object):
             self.setGameOutput(0.5)
 
             # Trigger callback and clear
-            if self.genome:
-                self.genome.set_fitness(self.points)
-
-            self.setGameEnd = True
+            if self.setGameEnd:
+                if self.setGameEnd == 1:
+                    self.genome.set_fitness(self.points)
+                else:
+                    self.startNewGame()
+                self.setGameEnd = False
 
             # console.log('GAME OVER= '+self.points)
-        # if gameover is not found and gamestate is over # Reset the sensors for starting afresh
-    def resetSensors(self):
-            #logger.info('163 trying to start')
+
+        elif not found and not self.gamestate == 'PLAYING':
+            logger.info('163 trying to start')
             self.gamestate = 'PLAYING'
-            #logger.info('164 trying to start')
+            logger.info('164 trying to start')
              # Clear points
             self.points = 0
             self.lastScore = 0
@@ -179,7 +177,7 @@ class GameManipulator(object):
             self.setGameOutput(0.5)
 
             # Clear sensors
-            self.sensors[0].lastComputeSpeed = time.time()
+            self.sensors[0].lastComputeSpeed = 0
             self.sensors[0].lastSpeeds = []
             self.sensors[0].lastValue = 1
             self.sensors[0].value = 1
@@ -189,7 +187,11 @@ class GameManipulator(object):
             # Clar Output flags
             self.lastOutputSet = 'NONE'
 
-            
+            # Trigger callback and clear
+            if self.onGameStart:
+                logger.info('185 on gamestart %s'%(self.onGameStart))
+                self.onGameStart_callback()
+                self.onGameStart = False
 
     # console.log('GAME RUNNING '+self.points)
 
@@ -197,40 +199,39 @@ class GameManipulator(object):
 # Call this to start a fresh new game
 # Will wait untill game has ended,
 # and call the `next` callback
-    def startNewGame(self,genome):
+    def startNewGame(self, genome=None):
 
           # Refresh state
         logger.info('in start game 200')
         logger.info(genome)
-        
-        #self.readGameState()
-        self.resetSensors()
+        self.readGameState()
         logger.info(self.gamestate)
-         
-        logger.info('Trying to start')
-          # Press space to begin game
-        pyautogui.press(' ')
-        #self.gamestate = 'PLAYING'
-        self.genome = genome
-        i=1
-        self.setSensorData = True
-        while(not self.gamestate == 'OVER'):
-            t1 = time.time()
-            #logger.info("####current time ### %f"%(t1,))
-            self.readSensors()
-            logger.info("####after sensor time diff ### %f"%(time.time()-t1,))
-            if not i%4:
-                t2 = time.time()
-                #logger.info("####game state csurrent time ### %d"%(t2,))
-                self.readGameState()
-                logger.info("####after game time diff ### %f"%(time.time()-t2,))
-            i += 1
-            # Now game is over for this genome, fitness is also updated
+
+        
+        if genome:
+            self.genome = genome
+        # If game is already over, press space
+        if self.gamestate == 'OVER' or not self.onGameStart:
+            self.event.set()
+
+          # Set start callback
+            self.onGameStart = True
+            logger.info('Trying to start')
+          # Press space to begin game (repetidelly)
+            pyautogui.press(' ')
             #ThreadJob(lambda x:pyautogui.press(' '),self.event, 0.3 ).start()
 
-            # Refresh state
-            #self.readGameState()
+          # Refresh state
+            self.readGameState()
 
+        else:
+          # Wait die, and call recursive action
+            self.setGameEnd = 2
+            
+    
+    def onGameStart_callback(self):
+        self.setSensorData = True
+        self.setEndGame = 1
 
     
 
@@ -243,7 +244,7 @@ class GameManipulator(object):
 # value is now higher than before
     def computePoints(self):
         for sensor in self.sensors:
-            if sensor.value > 0.4  and sensor.lastValue < 0.3:
+            if sensor.value > 0.5 and sensor.lastValue < 0.3:
                 self.points += 1
         logger.info('POINTS=%d'%( self.points))
       # console.log('POINTS= '+self.points)
@@ -275,7 +276,7 @@ class GameManipulator(object):
 
             # Compute cursor forwarding
             forward = sensor.value * self.width * 0.8 * sensor.length
-            logging.info('sensor length and size: %s %s'%(sensor.length, sensor.size,))
+
             end = Scanner.scanUntil(
               # console.log(
                 # Start position
@@ -328,19 +329,20 @@ class GameManipulator(object):
             # Compute speed
             dt = time.time() - sensor.lastComputeSpeed
             sensor.lastComputeSpeed = time.time()
-            logger.info('time diff %s %s'%(dt, str(sensor.lastSpeeds),))
+
             if sensor.value < sensor.lastValue:
               # Compute speed
                 newSpeed = (sensor.lastValue - sensor.value) / dt
 
                 sensor.lastSpeeds = [newSpeed] + sensor.lastSpeeds
 
-                sensor.lastSpeeds = sensor.lastSpeeds[:10]
+                while len(sensor.lastSpeeds) > 10:
+                    sensor.lastSpeeds.pop()
 
                 # Take Average
                 avgSpeed = np.mean(sensor.lastSpeeds)
 
-                sensor.speed = max(avgSpeed - 1.5, newSpeed)
+                sensor.speed = max(avgSpeed - 1.5, sensor.speed)
 
 
             # Save length/size of sensor value
@@ -352,11 +354,11 @@ class GameManipulator(object):
         self.computePoints()
 
         # Call sensor callback (to act)
-        #logger.info(self.setSensorData)
+        logger.info(self.setSensorData)
         if self.setSensorData:
             self.setGameOutput(self.genome.activate([[self.sensors[0].value,
             self.sensors[0].size,
-            self.sensors[0].speed]])[0][0])
+            self.sensors[0].speed]])[0][0]) 
 
         
 

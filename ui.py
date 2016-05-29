@@ -32,6 +32,7 @@ class CustomMultiLineAction(npyscreen.MultiLineAction):
         self.value = 'saved into file'
     
     def stop(self, *args, **kwargs):
+        self.learn = kwargs.get('learn',None)
         if self.learn.state == 'STOP':
             self.learn.state = 'LEARNING';
             self.gm.focusGame();
@@ -112,7 +113,7 @@ class UI(npyscreen.NPSApp):
         SPEED_OFFSET = 5*self.CHART_WIDTH
         ACTIVATION_OFFSET = 7*self.CHART_WIDTH
 
-        self.logger.info(self.CHART_LENGTH)
+        
         for s in range(SIZE_OFFSET, SIZE_OFFSET+self.CHART_WIDTH):
             chart_array[s] = self.bar_length(y['size'])
         for d in range(DISTANCE_OFFSET, DISTANCE_OFFSET+self.CHART_WIDTH):
@@ -155,9 +156,10 @@ class UI(npyscreen.NPSApp):
         try:
             
             # game Stats
-            row1 = 'Status: %s \n Fitness: %s \n GameStatus: %s \n Generation: %s : %s/%s' %(self.learn.state, self.gm.points, 
-                self.gm.gamestate, self.learn.generation, self.learn.genome, len(self.learn.genomes)) 
-            self.genome_stats.value = row1
+            row1 = ['Status: %s'%(self.learn.state,), 'Fitness: %s '%( self.gm.points,),'GameStatus: %s '%(self.gm.gamestate, ),
+            'Generation: %s : %s/%s' %(self.learn.generation, 
+                 self.learn.genome, len(self.learn.genomes))]
+            self.genome_stats.values = row1
             self.genome_stats.display()
             if self.gm.gameOutput:
                 row2 = 'Action: %s \n Activation: %s \n' %(self.gm.gameOutputString, self.gm.gameOutput)
@@ -177,6 +179,7 @@ class UI(npyscreen.NPSApp):
             '\n   %s     %s    %s    %s  \n     Distance    Size    Speed Activation\n' % (self.gm.sensors[0].value,
                 self.gm.sensors[0].size,self.gm.sensors[0].speed,self.gm.gameOutput)
             self.network_chart.display()
+            self.logger.info(self.gm.gameOutput)
 
         # catch the KeyError caused to c
         # cumbersome point of reading the stats data structures
@@ -235,7 +238,7 @@ class UI(npyscreen.NPSApp):
 
         
 
-        self.game_stats = self.window.add(MultiLineActionWidget,
+        self.game_stats = self.window.add(MultiLineWidget,
                                                name="Game Stats",
                                                relx=1,
                                                rely=int(math.ceil(13*self.Y_SCALING_FACTOR)+3),
@@ -243,8 +246,8 @@ class UI(npyscreen.NPSApp):
                                                max_width=int(48*self.X_SCALING_FACTOR)
                                                )
 
-        self.game_stats.entry_widget.values = []
-        self.game_stats.entry_widget.scroll_exit = False
+        self.game_stats.entry_widget.value=""
+        self.game_stats.entry_widget.editable = False
         self.game_stats.display()
 
         self.genome_stats = self.window.add(MultiLineActionWidget,
@@ -261,7 +264,8 @@ class UI(npyscreen.NPSApp):
 
         self.actions = self.window.add(npyscreen.FixedText,
                                        relx=1,
-                                       rely=int(24*self.Y_SCALING_FACTOR)
+                                       rely=int(24*self.Y_SCALING_FACTOR),
+                                       learn = self.learn
                                        )
         
         self.actions.value = "^K : save in file S: to stop learning   q : quit "
@@ -273,9 +277,20 @@ class UI(npyscreen.NPSApp):
         # fix for index error
         #self.network_array = [0]*self.CHART_LENGTH
         
-
+        self.logger.info('Now going to start the game yeaaaaaaaa')
+        t = threading.Thread(target = self.startLearning)
+        t.start()
+        
         # add subwidgets to the parent widget
         self.window.edit()
+    def startLearning(self):
+        if self.learn.state == 'STOP':
+            self.learn.state = 'LEARNING'
+            self.gm.focusGame()
+            self.learn.startLearning()
+        else:
+            self.learn.state = 'STOP'
+
 if __name__ == '__main__':
     try:
         

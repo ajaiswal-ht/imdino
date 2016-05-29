@@ -5,16 +5,18 @@ A Multilayer Perceptron implementation example using TensorFlow library.
 
 import tensorflow as tf
 import numpy
-
+import logging
+logger = logging.getLogger('percp')
 
 class Perceptron(object):
 
-    def __init__(self, n_input,n_hidden_1, n_hidden_2, n_output, sess):
+    def __init__(self, n_input,n_hidden_1, n_hidden_2, n_output):
         self.n_input = n_input
         self.n_hidden_1 = n_hidden_1
         self.n_hidden_2 = n_hidden_2
         self.n_output = n_output
-        self.sess = sess
+        self.sess = None
+        #self.sess = tf.Session()
         self.initialized = False
         self.weights = {'h1':None, 'h2':None, 'out': None}
         self.biases = {'b1':None, 'b2':None, 'out':None}
@@ -23,7 +25,7 @@ class Perceptron(object):
     
 
     def set_fitness(self, points):
-        slef.fitness = points
+        self.fitness = points
 
      # Create model
     def multilayer_perceptron(self, X, weights, biases):
@@ -51,19 +53,23 @@ class Perceptron(object):
         }
         self.x = tf.placeholder('float', [None, self.n_input])
         self.pred = self.multilayer_perceptron(self.x, self.weights, self.biases)
+        #if not self.sess:
+        self.sess = tf.Session()
         self.init = tf.initialize_all_variables()
         self.sess.run(self.init)
         self.initialized = True
    
     # Store layers weight & bias
     def activate(self,inputs):
-        i = tf.constant([inputs])
+        logger.info('activating for input %s' %(str(inputs),))
+        #i = tf.constant([inputs])
         if self.initialized is False:
             self.init1()
         outputs = self.sess.run(self.pred, feed_dict={self.x: inputs})
         return outputs
 
     def get_dict(self):
+        #self.sess = tf.Session()
         arr1 = tf.reshape(self.weights['h1'], [self.n_input*self.n_hidden_1]).eval(session=self.sess)
         arr2 = tf.reshape(self.weights['h2'], [self.n_hidden_1*self.n_hidden_2]).eval(session=self.sess)
         arr3 = tf.reshape(self.weights['out'],[self.n_hidden_2*self.n_output]).eval(session=self.sess)
@@ -91,10 +97,18 @@ class Perceptron(object):
         self.biases['b2'] = tf.convert_to_tensor(biases_arr[self.n_hidden_1:self.n_hidden_1+self.n_hidden_2])
         self.biases['out'] = tf.convert_to_tensor(biases_arr[self.n_hidden_1+self.n_hidden_2:])
         self.x = tf.placeholder('float', [None, self.n_input])
+        #if not self.sess:
+        self.sess = tf.Session()
         self.init = tf.initialize_all_variables()
         self.sess.run(self.init)
         self.pred = self.multilayer_perceptron(self.x, self.weights, self.biases)
         self.initialized = True
+
+    def copy(self):
+        d = self.get_dict()
+        p = Perceptron(self.n_input,self.n_hidden_1, self.n_hidden_2, self.n_output)
+        p.reload(d)
+        return p
 
     def __unicode__(self):
         return str(self.fitness)
