@@ -49,6 +49,7 @@ def main():
         UI(gm, learner, global_stop_event).run()
     except KeyboardInterrupt:
         global_stop_event.set()
+        learner.interuptted = True
         # clear log file
         with open('/tmp/ui.log','w'):
             pass

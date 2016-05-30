@@ -22,15 +22,17 @@ class Learner(object):
         self.genomeUnits = genomeUnits
         self.selection = selection
         self.mutationProb = mutationProb
+        self.interuptted = False
         #self.sess = tf.Session()
         #self.saver = tf.train.Saver()
 
 
 
     # Build genomes before calling executeGeneration.
-    def startLearning(self):
+    def startLearning(self, stop_event):
 
         # Build genomes if needed
+        self.stop_event = stop_event
         while (len(self.genomes) < self.genomeUnits):
             self.genomes.append(self.buildGenome(3, 1))
   
@@ -57,11 +59,11 @@ class Learner(object):
 
         self.genome = 0
 
-        while(self.genome< len(self.genomes)):
+        while(self.genome< len(self.genomes) and not self.interuptted):
             t= Thread(target=self.executeGenome)
             t.start()
             while t.is_alive():
-                time.sleep(5)
+                time.sleep(3)
         self.genify()
         #self.current_thread = Thread(target = self.executeGenome)
         #self.next_thread = None
@@ -76,31 +78,32 @@ class Learner(object):
         self.genomes = self.selectBestGenomes()
 
         # Copy best genomes
-        bestGenomes = copy.copy(self.genomes)
-
+        bestGenomes = self.genomes
+        #logger.info('bestGenomes %d'%(len(bestGenomes),))
         # Cross Over ()
-        while len(self.genomes) <= self.genomeUnits - 2:
+        while len(self.genomes) < self.genomeUnits - 2:
             # Get two random Genomes
             genA = random.choice(bestGenomes).copy()
             genB = random.choice(bestGenomes).copy()
-            #logger.info('weights' + str(genA.weights)+str(genB.weights))
+            #logger.info('weights' + str(genA.as_dict)+str(genB.as_dict))
             #Cross over and Mutate
             newGenome = self.mutate(self.crossOver(genA, genB))
-
+            #logger.info('new genome %s'%(str(newGenome.as_dict),))
             #Add to generation
             self.genomes.append(newGenome)
     
 
         # Mutation-only
-        while len(self.genomes) <= self.genomeUnits:
+        while len(self.genomes) < self.genomeUnits:
             # Get two random Genomes
             gen = random.choice(bestGenomes).copy()
-
+            #logger.info('mutation old genome %s'%(str(gen.as_dict),))
             # Cross over and Mutate
             newGenome = self.mutate(gen);
-
+            #logger.info('mutation new genome %s'%(str(newGenome.as_dict),))
             # Add to generation
             self.genomes.append(newGenome);
+            #logger.info('mutation old genome after mutation %s'%(str(gen.as_dict),))
     
 
         logger.info('Completed generation %d' %(self.generation,))
@@ -118,11 +121,16 @@ class Learner(object):
         s = []
         selected = OrderedDict(sorted(d.items(), key= lambda t: t[1].fitness, reverse=True)).values()
         selected = selected[:self.selection]
+        tf.reset_default_graph()
         for select in selected:
-            s.append(select.copy())
+            fit = select.copy()
+            fit.reload()
+            s.append(fit)
             f.append(select.fitness)
+            
+
         selected = None
-        logger.info('Fitness: %s' %(str(f),))
+        logger.info('Fitness: #### %s' %(str(f),))
         return s
     
    
@@ -152,7 +160,7 @@ class Learner(object):
   
         #Reads sensor data, and apply network
         self.gm.startNewGame(genome)
-        logger.info('starter at 149 in learner')
+        #logger.info('starter at 149 in learner')
         #Go to next genome
         #if self.genome < len(self.genomes):
         #    self.current_thread = Thread(target = self.executeGenome)
@@ -219,11 +227,13 @@ class Learner(object):
     def crossOver(self, netA, netB):
         #Swap (50% prob.)
         if (random.random() > 0.5):
-            netA, netB = netB, netA
+            temp = netA
+            netA = netB
+            netB = temp
   
         # get dict from net
-        netA_dict = netA.get_dict()
-        netB_dict = netB.get_dict()
+        netA_dict = netA.as_dict
+        netB_dict = netB.as_dict
 
         # Cross over bias
         netA_biases = netA_dict['biases']
@@ -235,8 +245,8 @@ class Learner(object):
             netA_biases[(range(cutLocation, len(netA_biases))),]) 
         netA_dict['biases'] = netA_updated_biases
         netB_dict['biases'] = netB_updated_biases
-        netA.reload(netA_dict)
-        netB.reload(netB_dict)
+        netA.reload()
+        netB.reload()
 
         return netA
 
@@ -249,10 +259,10 @@ class Learner(object):
     def mutate(self, net):
         # Mutate
         # get dict from net
-        net_dict = net.get_dict()
+        net_dict = net.as_dict
         self.mutateDataKeys(net_dict, 'biases', self.mutationProb)
         self.mutateDataKeys(net_dict, 'weights', self.mutationProb)
-        net.reload(net_dict)
+        net.reload()
         return net
 
 

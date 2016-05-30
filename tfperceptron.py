@@ -2,11 +2,12 @@
 A Multilayer Perceptron implementation example using TensorFlow library.
 
 '''
-
+import copy
 import tensorflow as tf
 import numpy
 import logging
 logger = logging.getLogger('percp')
+
 
 class Perceptron(object):
 
@@ -21,10 +22,13 @@ class Perceptron(object):
         self.weights = {'h1':None, 'h2':None, 'out': None}
         self.biases = {'b1':None, 'b2':None, 'out':None}
         self.fitness = 0
+        self.weights_arr = []
+        self.biases_arr = []
         
     
 
     def set_fitness(self, points):
+        logger.info('fitness recorded: %d'%(points,))
         self.fitness = points
 
      # Create model
@@ -57,6 +61,7 @@ class Perceptron(object):
         self.sess = tf.Session()
         self.init = tf.initialize_all_variables()
         self.sess.run(self.init)
+        self.get_dict()
         self.initialized = True
    
     # Store layers weight & bias
@@ -77,12 +82,16 @@ class Perceptron(object):
         biases_arr = numpy.append(numpy.append(self.biases['b1'].eval(session=self.sess),
             self.biases['b2'].eval(session=self.sess)),  
             self.biases['out'].eval(session=self.sess))
+        self.weights_arr = weight_arr
+        self.biases_arr = biases_arr
+        self.as_dict = {"weights":weight_arr,"biases":biases_arr}
 
-        return {"weights":weight_arr,"biases":biases_arr}
+        return self.as_dict
 
-    def reload(self, param_dict):
-        weights_arr = param_dict['weights']
-        biases_arr = param_dict['biases']
+    def reload(self):
+        #logger.info('dict of genome %s %s' %(str(self),str(self.as_dict),))
+        weights_arr = self.as_dict['weights']
+        biases_arr = self.as_dict['biases']
         dim1 = self.n_input*self.n_hidden_1
         dim2 = self.n_hidden_1*self.n_hidden_2
         dim3 = self.n_hidden_2*self.n_output
@@ -105,9 +114,9 @@ class Perceptron(object):
         self.initialized = True
 
     def copy(self):
-        d = self.get_dict()
+        d = copy.deepcopy(self.as_dict)
         p = Perceptron(self.n_input,self.n_hidden_1, self.n_hidden_2, self.n_output)
-        p.reload(d)
+        p.as_dict = d
         return p
 
     def __unicode__(self):

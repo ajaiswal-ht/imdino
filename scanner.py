@@ -3,8 +3,8 @@ import pyautogui
 # Cache screen size
 class Size(object):
     def __init__(self, size):
-        self.width = size[0]
-        self.height = size[1]
+        self.width = size[0]*2
+        self.height = size[1]*2
 
 screenSize = Size(pyautogui.size())
 

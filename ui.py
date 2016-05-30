@@ -95,11 +95,11 @@ class UI(npyscreen.NPSApp):
         # c.set(89,31) -- here the corner point will be set
         # the upper bounds are the excluded points
         self.CHART_HEIGHT = 16
-        self.CHART_LENGTH = 90
-        self.CHART_WIDTH = 10
+        self.CHART_LENGTH = 180
+        self.CHART_WIDTH = 20
 
         # logger
-        self.logger = logging.getLogger('dino.ui')
+        #self.logger = logging.getLogger('dino.ui')
 
     def draw_chart(self,canvas,y):
         '''
@@ -146,7 +146,7 @@ class UI(npyscreen.NPSApp):
             t = ThreadJob(self.update,self.stop_event,0.6)
             self.update_thread = t
             self.update_thread.start()
-            self.logger.info('Started GUI update thread')
+            #self.logger.info('Started GUI update thread')
 
     def update(self):
         '''
@@ -179,7 +179,7 @@ class UI(npyscreen.NPSApp):
             '\n   %s     %s    %s    %s  \n     Distance    Size    Speed Activation\n' % (self.gm.sensors[0].value,
                 self.gm.sensors[0].size,self.gm.sensors[0].speed,self.gm.gameOutput)
             self.network_chart.display()
-            self.logger.info(self.gm.gameOutput)
+            #self.logger.info(self.gm.gameOutput)
 
         # catch the KeyError caused to c
         # cumbersome point of reading the stats data structures
@@ -197,7 +197,7 @@ class UI(npyscreen.NPSApp):
         self.window = WindowForm(parentApp=self,
                                  name="Dino stats ")
 
-        self.logger.info(self.window.curses_pad.getmaxyx())
+        #self.logger.info(self.window.curses_pad.getmaxyx())
 
         max_y,max_x = self.window.curses_pad.getmaxyx()
 
@@ -218,9 +218,9 @@ class UI(npyscreen.NPSApp):
                                            )
          
         network_canvas = Canvas()  
-        self.logger.info('yaa')  
-        self.network_chart.value =  '\n\n    Distance    Size    Speed     Activation\n'
-        self.logger.info(self.network_chart.value)
+        #self.logger.info('yaa')  
+        self.network_chart.value =  '\n\n    Distance      Size        Speed         Activation\n'
+        #self.logger.info(self.network_chart.value)
         self.network_chart.entry_widget.editable = False
         self.network_chart.display()
 
@@ -277,7 +277,7 @@ class UI(npyscreen.NPSApp):
         # fix for index error
         #self.network_array = [0]*self.CHART_LENGTH
         
-        self.logger.info('Now going to start the game yeaaaaaaaa')
+        #self.logger.info('Now going to start the game yeaaaaaaaa')
         t = threading.Thread(target = self.startLearning)
         t.start()
         
@@ -287,7 +287,7 @@ class UI(npyscreen.NPSApp):
         if self.learn.state == 'STOP':
             self.learn.state = 'LEARNING'
             self.gm.focusGame()
-            self.learn.startLearning()
+            self.learn.startLearning(self.stop_event)
         else:
             self.learn.state = 'STOP'
 

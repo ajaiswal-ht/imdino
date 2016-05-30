@@ -21,12 +21,14 @@ class Sensor(object):
     def __init__(self):
         self.lastValue = 1
 
-        self.value = 0
-        self.offset = [84, -15]
-        self.step = [4, 0]
-        self.length = 0.3
+        self.value = 1
+        self.offset = [500, -20]
+        #self.crossed_offset = [-250,-20]
+        self.step = [8, 0]
+        self.length = 0.6
         self.lastScore = 0
         self.lastSpeeds = []
+        self.sesorPrevLast = None
 
         # Speed
         self.speed = 0
@@ -56,8 +58,10 @@ class GameManipulator(object):
         self.genome = None
         self.gameOutput = 0.5
         self.gameOutputString = 'Norm'
+        self.starting = False
         # GameOver Position
-        self.gameOverOffset = [190, -82]
+        self.gameOverOffset = [400, -70]
+        #self.last_found = [400, -70]
         self.lastOutputSet = 'NONE'
         self.lastOutputSetTime = 0
         self.event = threading.Event()
@@ -70,13 +74,15 @@ class GameManipulator(object):
 
 # Find out dinosaur (fast)
     def findGamePosition(self):
-        pos, dinoPos, skipXFast = [15]*3
+        pos, dinoPos, skipXFast = [30]*3
         mul = 20
-        screenshot = pyautogui.screenshot().resize((screenSize.width, screenSize.height)).convert('RGB')
+        screenshot = pyautogui.screenshot().convert('RGB')
+        notfound = True
+        #while(notfound):
         for x in map(lambda x: mul*x,range(1, screenSize.width/mul)):
             dinoPos = Scanner.scanUntil(
                 # Start position
-                [x, 80],
+                [x, 380],
                 # Skip pixels
                 [0, skipXFast],
                 # Searching Color
@@ -84,18 +90,18 @@ class GameManipulator(object):
                 # Normal mode (not inverse)
                 False,
                 # Iteration limit
-                500 / skipXFast, screenshot)
+                600 / skipXFast, screenshot)
 
             if dinoPos:
                 break
-
+        print dinoPos
         if not dinoPos:
             return None
 
         for x in range(dinoPos[0] - 50, dinoPos[0]+1):
             pos = Scanner.scanUntil(
                 # Start position
-                [x, dinoPos[1] - 2],
+                [x, dinoPos[1] - 5],
                 # Skip pixels
                 [0, 1],
                 # Searching Color
@@ -133,50 +139,23 @@ class GameManipulator(object):
 
         # Save to allow global access
         self.offset = pos
-        self.width = 600#endPos[0] - pos[0];
+        self.width = 1200
+        print pos
 
         return pos
 
 
-# Read Game state
-# (If game is ended or is playing)
-    def readGameState(self):
-      # Read GameOver
-        logger.info("In thread %d" %(threading.active_count(),))
-        found = Scanner.scanUntil(
-        [
-          self.offset[0] + self.gameOverOffset[0],
-          self.offset[1] + self.gameOverOffset[1]
-        ],
-
-        [2, 0], COLOR_DINOSAUR, False, 20, pyautogui.screenshot().resize((screenSize.width, screenSize.height)).convert('RGB'))
-        logger.info("%s, %s" %(found,self.gamestate ))
-        
-        #Check if game is over, gamestate is not updated yet though game is over. Update it and reset sensors
-        if found and not self.gamestate == 'OVER':
-            self.gamestate = 'OVER'
-
-            # Clear keys
-            self.setGameOutput(0.5)
-
-            # Trigger callback and clear
-            if self.genome:
-                self.genome.set_fitness(self.points)
-
-            self.setGameEnd = True
-
-            # console.log('GAME OVER= '+self.points)
         # if gameover is not found and gamestate is over # Reset the sensors for starting afresh
     def resetSensors(self):
             #logger.info('163 trying to start')
-            self.gamestate = 'PLAYING'
+            #self.gamestate = 'PLAYING'
             #logger.info('164 trying to start')
              # Clear points
             self.points = 0
             self.lastScore = 0
 
             # Clear keys
-            self.setGameOutput(0.5)
+            #self.setGameOutput(0.5)
 
             # Clear sensors
             self.sensors[0].lastComputeSpeed = time.time()
@@ -200,37 +179,27 @@ class GameManipulator(object):
     def startNewGame(self,genome):
 
           # Refresh state
-        logger.info('in start game 200')
+        #logger.info('in start game 200')
         logger.info(genome)
         
         #self.readGameState()
         self.resetSensors()
-        logger.info(self.gamestate)
+        self.starting = True
+        #logger.info(self.gamestate)
          
-        logger.info('Trying to start')
+        #logger.info('Trying to start')
           # Press space to begin game
         pyautogui.press(' ')
-        #self.gamestate = 'PLAYING'
+        self.gamestate = 'PLAYING'
         self.genome = genome
-        i=1
-        self.setSensorData = True
+        #i=1
+        #self.setSensorData = True
         while(not self.gamestate == 'OVER'):
             t1 = time.time()
-            #logger.info("####current time ### %f"%(t1,))
             self.readSensors()
             logger.info("####after sensor time diff ### %f"%(time.time()-t1,))
-            if not i%4:
-                t2 = time.time()
-                #logger.info("####game state csurrent time ### %d"%(t2,))
-                self.readGameState()
-                logger.info("####after game time diff ### %f"%(time.time()-t2,))
-            i += 1
-            # Now game is over for this genome, fitness is also updated
-            #ThreadJob(lambda x:pyautogui.press(' '),self.event, 0.3 ).start()
-
-            # Refresh state
-            #self.readGameState()
-
+            
+          
 
     
 
@@ -243,9 +212,13 @@ class GameManipulator(object):
 # value is now higher than before
     def computePoints(self):
         for sensor in self.sensors:
-            if sensor.value > 0.4  and sensor.lastValue < 0.3:
+            if sensor.prevLastValue:
+                if sensor.prevLastValue == sensor.value and sensor.value == 1.0:
+                    return
+            logger.info('sensor value %f - %f'%(sensor.value, sensor.lastValue,))
+            if sensor.value - sensor.lastValue >0.1 and not sensor.value - sensor.lastValue == 1.0 :
                 self.points += 1
-        logger.info('POINTS=%d'%( self.points))
+      #  logger.info('POINTS=%d'%( self.points))
       # console.log('POINTS= '+self.points)
 
 
@@ -265,100 +238,185 @@ class GameManipulator(object):
         offset = self.offset
 
         startTime = time.time()
-        screenshot = pyautogui.screenshot().resize((screenSize.width, screenSize.height)).convert('RGB')
-        for sensor in self.sensors:
-          # Calculate absolute position of ray tracing
-            start = [
-              offset[0] + sensor.offset[0],
-              offset[1] + sensor.offset[1],
-            ]
+        screenshot = pyautogui.screenshot().convert('RGB')
+        #print('screenshot time :%f',(time.time()-startTime,))
+        # First check if game is over
+        found = Scanner.scanUntil(
+        [
+          self.offset[0] + self.gameOverOffset[0],
+          self.offset[1] + self.gameOverOffset[1]
+        ],
 
-            # Compute cursor forwarding
-            forward = sensor.value * self.width * 0.8 * sensor.length
-            logging.info('sensor length and size: %s %s'%(sensor.length, sensor.size,))
-            end = Scanner.scanUntil(
-              # console.log(
-                # Start position
-                [start[0], start[1]],
-                # Skip pixels
-                sensor.step,
-                # Searching Color
-                COLOR_DINOSAUR,
-                # Invert mode?
-                False,
-                # Iteration limit
-                (self.width * sensor.length) / sensor.step[0], screenshot)
+        [2, 0], COLOR_DINOSAUR, False, 150,screenshot)
+        print found
+        if found and not self.starting:
+            self.last_found = found
+            logger.info('Found game over at %s'%(str(found),))
+            if self.gamestate == 'PLAYING':
+                self.genome.set_fitness(self.points)
+            self.gamestate = 'OVER'
+            
+            # Clear keys
+            self.setGameOutput(0.5)
+            self.resetSensors()
+        else:
 
-            # Save lastValue
-            sensor.lastValue = sensor.value
+            for sensor in self.sensors:
+                s1 = time.time()
+                #logger.info('time in read sensor starting %f'%(s1,))
+                gameover_or_noobst = False
+                first_time = False
+              # Calculate absolute position of ray tracing
+                start = [
+                  offset[0] + sensor.offset[0],
+                  offset[1] + sensor.offset[1],
+                ]
 
-            # Calculate the Sensor value
-            if end:
-                sensor.value = (end[0] - start[0]) / (self.width * sensor.length)
+                
+                #logging.info('sensor length and size: %s %s'%(sensor.length, sensor.size,))
+                end = Scanner.scanUntil(
+                  # console.log(
+                    # Start position
+                    [start[0], start[1]],
+                    # Skip pixels
+                    sensor.step,
+                    # Searching Color
+                    COLOR_DINOSAUR,
+                    # Invert mode?
+                    False,
+                    # Iteration limit
+                    (self.width * sensor.length) / sensor.step[0], screenshot)
 
-                # Calculate size of obstacle
-                endPoint = Scanner.scanUntil(
-                  [end[0] + 75, end[1]],
-                  [-2, 0],
-                  COLOR_DINOSAUR,
-                  False,
-                  75 / 2, screenshot
-                )
+                # Save lastValue
+                sensor.prevLastValue = sensor.lastValue
+                sensor.lastValue = sensor.value
 
-                # If no end point, set the start point as end
-                if not endPoint:
-                    endPoint = end
+                #cross_start = [
+                #  offset[0] + sensor.crossed_offset[0],
+                #  offset[1] + sensor.crossed_offset[1],
+                #]
+                m1 = s1-time.time()
+                logger.info('time in sensor after finding obst ending %f'%(m1,))
+               
+                #crossed_end = Scanner.scanUntil(
+                #   # console.log(
+                #     # Start position
+                #     cross_start,
+                #     # Skip pixels
+                #     [2,0],
+                #     # Searching Color
+                #     COLOR_DINOSAUR,
+                #     # Invert mode?
+                #     False,
+                #     # Iteration limit
+                #     70, screenshot)
+                
+                # if crossed_end:
+                #     self.points += 1
 
-                sizeTmp = (endPoint[0] - end[0]) / 100.0
-                if self.points == sensor.lastScore:
-                  # It's the same obstacle. Set size to "max" of both
-                    sensor.size = max(sensor.size, sizeTmp)
+                #logger.info('cross ended : %s'%(str(crossed_end),))
+
+                # Calculate the Sensor value
+                if end:
+                    sensor.value = (end[0] - start[0]) / (self.width * sensor.length)
+                    
+                    # Calculate size of obstacle
+                    endPoint = Scanner.scanUntil(
+                      [end[0] + 150, end[1]],
+                      [-4, 0],
+                      COLOR_DINOSAUR,
+                      False,
+                      150 / 2, screenshot
+                    )
+
+                    # If no end point, set the start point as end
+                    if not endPoint:
+                        endPoint = end
+
+                    sizeTmp = (endPoint[0] - end[0]) / 100.0
+                    if self.points == sensor.lastScore:
+                      # It's the same obstacle. Set size to "max" of both
+                        sensor.size = max(sensor.size, sizeTmp)
+                    else:
+                        sensor.size = sizeTmp
+
+
+                
                 else:
-                    sensor.size = sizeTmp
+                    sensor.value = 1
+                    sensor.size = 0
+                m2 = time.time()-s1-m1
+                logger.info('time in sensor after finding size ending %f' %(m2,))
 
+                now = time.time()
+                dt = now - sensor.lastComputeSpeed
+                more_than_one_time = False
+                first_time = False
+                gameover_or_noobst = False
+                sensor.lastComputeSpeed = now
+                if sensor.value == sensor.lastValue: #Either game over or no obstacles during two intervals
+                    gameover_or_noobst = True
+                
+                if sensor.lastValue == 1.0 and sensor.value<1.0:
+                    first_time = True 
+                
+                if sensor.value < 1.0 and sensor.lastValue <1.0:
+                    more_than_one_time = True
+                if more_than_one_time:
+                    if sensor.value < sensor.lastValue:
+                        sensor.speed = (sensor.lastValue - sensor.value) / dt
+                    else:
+                        if sensor.lastValue > 0.2:
+                            sensor.speed = sensor.lastValue/dt
+                        else:
+                            sensor.speed = (1-sensor.value)/dt
+                elif first_time:
+                    if sensor.value > 0.2 and sensor.value<0.8:
+                        sensor.speed = (sensor.lastValue - sensor.value) / dt
+                    elif sensor.value < 0.2:
+                        sensor.speed = (1-sensor.value)/dt
+                    else:
+                        sensor.speed = 0
 
-                # We use the current score to check for object equality
-                sensor.lastScore = self.points
+                
 
+                
+                # sensor.lastComputeSpeed = time.time()
+                # #logger.info('time diff %s %s'%(dt, str(sensor.lastSpeeds),))
+                # if sensor.value < sensor.lastValue:
+                #   # Compute speed
+                #     newSpeed = (sensor.lastValue - sensor.value) / dt
 
-            else:
-                sensor.value = 1
-                sensor.size = 0
+                #     sensor.lastSpeeds = [newSpeed] + sensor.lastSpeeds
 
-            # Compute speed
-            dt = time.time() - sensor.lastComputeSpeed
-            sensor.lastComputeSpeed = time.time()
-            logger.info('time diff %s %s'%(dt, str(sensor.lastSpeeds),))
-            if sensor.value < sensor.lastValue:
-              # Compute speed
-                newSpeed = (sensor.lastValue - sensor.value) / dt
+                #     sensor.lastSpeeds = sensor.lastSpeeds[:10]
 
-                sensor.lastSpeeds = [newSpeed] + sensor.lastSpeeds
+                #     # Take Average
+                #     avgSpeed = np.mean(sensor.lastSpeeds)
 
-                sensor.lastSpeeds = sensor.lastSpeeds[:10]
+                #     sensor.speed = max(avgSpeed - 1.5, newSpeed)
+                if not gameover_or_noobst:
 
-                # Take Average
-                avgSpeed = np.mean(sensor.lastSpeeds)
+                    # We use the current score to check for object equality
+                    sensor.lastScore = self.points
+                    self.computePoints()
+                # Save length/size of sensor value
+                    sensor.size = min(sensor.size, 1.0)
+                #print( sensor.value, sensor.size, end, forward, start)
+                #startTime = time.time()
+                #print('screenshot  total time :%f',(time.time()-startTime,))
 
-                sensor.speed = max(avgSpeed - 1.5, newSpeed)
+                # Compute points
+                #self.computePoints()
 
+                # Call sensor callback (to act)
+                #logger.info(self.setSensorData)
+                    self.setGameOutput(self.genome.activate([[self.sensors[0].value,
+                    self.sensors[0].size,
+                    self.sensors[0].speed]])[0][0])
+                    self.starting = False
 
-            # Save length/size of sensor value
-            sensor.size = min(sensor.size, 1.0)
-
-            startTime = time.time()
-
-        # Compute points
-        self.computePoints()
-
-        # Call sensor callback (to act)
-        #logger.info(self.setSensorData)
-        if self.setSensorData:
-            self.setGameOutput(self.genome.activate([[self.sensors[0].value,
-            self.sensors[0].size,
-            self.sensors[0].speed]])[0][0])
-
-        
+                logger.info('time in read sensor ending %f'%(s1-time.time(),))
 
 
 # Set action to game
@@ -387,12 +445,13 @@ class GameManipulator(object):
 
             # JUMP
             # Check if hasn't jump for more than 3 continuous secconds
-            if (time.time() - self.lastOutputSetTime < 3000):
+            if (time.time() - self.lastOutputSetTime < 3):
                 pyautogui.keyUp('down')
                 pyautogui.keyDown('up')
+                
             else:
                 pyautogui.keyUp('up')
-                pyautogui.keyDown('down')
+                pyautogui.keyUp('down')
 
          
         self.lastOutputSet = self.gameOutputString
@@ -416,3 +475,11 @@ class GameManipulator(object):
     def focusGame(self):
         pyautogui.moveTo(self.offset[0], self.offset[1])
         pyautogui.click()
+
+if __name__ == '__main__':
+    gm = GameManipulator()
+    #gm.findGamePosition()
+    gm.offset = [610, 522]
+    gm.width = 1200
+    gm.readSensors()
+    print gm.width
