@@ -52,6 +52,9 @@ python main.py
 
 ```
 
+If you get 'FAILED TO FIND GAME!' error, then check if dinosaur game is visible. 
+If it is not working even after game is visible, try after removing multiplication by two at line number 6 and 7 in scanner.py.
+
 #### bugs
 - Interupttion is not working correctly and may cause system to hang.
 - bug in Chrome, dino moves from its postion after many games, workaround - refreshing the dinosaur game page and copy the javascript code and paste in console as described above
