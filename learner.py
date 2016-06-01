@@ -9,6 +9,7 @@ import collections
 import copy
 import time
 
+
 logger = logging.getLogger('dino.learner')
 class Learner(object):
 
@@ -23,6 +24,7 @@ class Learner(object):
         self.selection = selection
         self.mutationProb = mutationProb
         self.interuptted = False
+        
         #self.sess = tf.Session()
         #self.saver = tf.train.Saver()
 
@@ -60,10 +62,8 @@ class Learner(object):
         self.genome = 0
 
         while(self.genome< len(self.genomes) and not self.interuptted):
-            t= Thread(target=self.executeGenome)
-            t.start()
-            while t.is_alive():
-                time.sleep(3)
+            self.executeGenome()
+            #time.sleep(1)
         self.genify()
         #self.current_thread = Thread(target = self.executeGenome)
         #self.next_thread = None
@@ -176,19 +176,21 @@ class Learner(object):
     #it will return false
     def checkExperience(self, genome):
   
-        step, start, stop = (0.1, 0.0, 1)
+        step, start, stop = (0.7, 0.0, 7)
 
         #: Inputs are default. We only want to test the first index
-        inputs = [[0.0, 0.3, 0.2]]
+        inputs = [[0.0, 0.8, 0.5]]
         outputs = {}
-
+        print "++++++++++"
         for k in np.arange(start,stop,step):
             inputs[0][0] = k;
 
-            activation = genome.activate(inputs[0][0])
+            activation = genome.activate(inputs)
+            print activation
+            #print "++++++++++"
             state = self.gm.getDiscreteState(activation)
     
-            outputs.update({state:true})
+            outputs.update({state:True})
            # Count states, and return true if greater than 1
         if len(outputs.keys())>1:
             return True
@@ -216,7 +218,7 @@ class Learner(object):
     def buildGenome(self, inputs, outputs):
         logger.info('Build genome %d' %(len(self.genomes)+1,))
 
-        network = Perceptron(inputs, 4, 4, outputs)
+        network = Perceptron(inputs, 4,outputs)
 
         return network;
 
@@ -281,5 +283,24 @@ class Learner(object):
         # Should mutate?
             if (random.random() > mutationRate):
                 continue
-            a[key][k] += a[key][k] * (random.random() - 0.5) * 3 + (random.random() - 0.5)
+            a[key][k] += a[key][k] * (random.random() - 0.5) * 1.5 + (random.random() - 0.5)
+
+
+if __name__ == "__main__":
+    from game_manipulator import GameManipulator
+    gm = GameManipulator()
+    learner = Learner(gm,12, 4, 0.2)
+
+    #p = Perceptron(3,4,1)
+    j =0
+    for i in range (0,100):
+        tf.reset_default_graph()
+        #sess = tf.Session()
+        p = Perceptron(3,4,1)
+        exp = learner.checkExperience(p)
+        print exp
+        if exp:
+            j+=1
+    print j
+
   

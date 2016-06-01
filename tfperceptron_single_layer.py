@@ -12,14 +12,13 @@ import time
 
 class Perceptron(object):
 
-    def __init__(self, n_input,n_hidden_1, n_output):
+    def __init__(self, n_input,n_hidden_1, n_output, sess):
         self.n_input = n_input
         self.n_hidden_1 = n_hidden_1
         #self.n_hidden_2 = n_hidden_2
         self.n_output = n_output
-        self.sess = None
+        self.sess = sess
         #self.sess = tf.Session()
-        self.fitness = 0
         self.initialized = False
         self.weights = {'h1':None,  'out': None}
         self.biases = {'b1':None,  'out':None}
@@ -60,7 +59,7 @@ class Perceptron(object):
         self.x = tf.placeholder('float', [None, self.n_input])
         self.pred = self.multilayer_perceptron(self.x, self.weights, self.biases)
         #if not self.sess:
-        self.sess = tf.Session()
+        #self.sess = tf.Session()
         self.init = tf.initialize_all_variables()
         self.sess.run(self.init)
         self.get_dict()
@@ -102,12 +101,11 @@ class Perceptron(object):
         self.biases['out'] = tf.convert_to_tensor(biases_arr[self.n_hidden_1:])
         self.x = tf.placeholder('float', [None, self.n_input])
         #if not self.sess:
-        self.sess = tf.Session()
+        #self.sess = tf.Session()
         self.init = tf.initialize_all_variables()
         self.sess.run(self.init)
         self.pred = self.multilayer_perceptron(self.x, self.weights, self.biases)
         self.initialized = True
-
 
     def copy(self):
         d = copy.deepcopy(self.as_dict)
@@ -126,7 +124,7 @@ class Perceptron(object):
 if __name__ == '__main__':
     s1 = time.time()
     sess = tf.Session()
-    p = Perceptron(3,4,1)
+    p = Perceptron(3,4,1, sess)
     
     print p.activate([[0.3,0.6,0.1]])
     print p.activate([[0.4,0.6,0.1]])
@@ -135,7 +133,7 @@ if __name__ == '__main__':
     print len(d['weights'])
     print len(d['biases'])
     #sess = tf.Session()
-    p1 = Perceptron(3,4,1)
+    p1 = Perceptron(3,4,1, sess)
     p1.as_dict = copy.deepcopy(d)
     p1.reload()
     print p1.activate([[0.3,0.6,0.1]])

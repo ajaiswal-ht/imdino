@@ -11,18 +11,12 @@ logger = logging.getLogger('main')
 # Initialize Game
 def main():
     gm = GameManipulator()
-    gm.findGamePosition();
+    gm.findGamePosition()
+    gm.focusGame()
 
 
     # Check for found game
-    if (gm.offset):
-      # Uncomment this line to debug the
-      # starting point of sensor (Check if it's detecting it correcly)
-
-       # pyautogui.moveTo((gm.offset[0]+GameManipulator.sensors[0].offset[0],
-        #  GameManipulator.offset[1] + GameManipulator.sensors[0].offset[1]))
-        pyautogui.moveTo((gm.offset[0], gm.offset[1]))
-    else:
+    if (not gm.offset):
         print 'FAILED TO FIND GAME!'
         return
     # Initialize UI
