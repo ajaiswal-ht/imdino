@@ -10,12 +10,12 @@ def main():
     #Initialize Game manipulator
     gm = GameManipulator()
     gm.findGamePosition()
-    gm.focusGame()
 
     # Check for found game
     if (not gm.offset):
         print 'FAILED TO FIND GAME!'
         return
+    gm.focusGame()
     # Initialize UI
 
     global_stop_event = threading.Event()
