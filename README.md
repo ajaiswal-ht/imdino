@@ -2,9 +2,9 @@
 # Chrome dinasaur automated player
 
 
-This project is implementation of  https://github.com/ivanseidel/IAMDinosaur in python
+This project is implemented in python and tensorflow
 
-It users neural networks to train a system to play dinosaur game on chrome when internet is off.
+It uses neural networks to train a system to play dinosaur game on chrome when internet is off.
 
 ## Requirements:
 - redis
@@ -15,7 +15,7 @@ It users neural networks to train a system to play dinosaur game on chrome when 
 - virtual environment
 
 
-clone the code. and cd to main folder of git project and
+clone the code. and cd to project src folder of git project and
 on MAC do following:
 
 ```
@@ -36,7 +36,7 @@ python fl.py
 
 ```
 and
-copy javascript code from dino.html file.
+copy javascript code from dino.js file.
 
 Now open chrome browser, go offline, and open any website. No internet connection with dino game will appear on chrome.
 Right click on the page and select inspect element option. click on console and paste the copied javasript.
